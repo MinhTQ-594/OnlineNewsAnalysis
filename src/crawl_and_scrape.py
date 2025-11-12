@@ -1,12 +1,14 @@
 import os
 import json
 import datetime
-from data_collection_utils import get_sub_topic_page, get_news_urls, get_structure_content
+from data_collection_utils import VnExpress, DanTri
 from tqdm import tqdm
 
 DATA_DIR = "D:/University/Kì 2025.1/Introduction to Data Science/OnlineNewsAnalysis/data"
+vnexpress_processor = VnExpress()
+dantri_processor = DanTri()
 
-topics_links = {
+vnexpress_topics_links = {
     "Thời sự": [
         "https://vnexpress.net/thoi-su"
         "https://vnexpress.net/thoi-su/chinh-tri",
@@ -84,42 +86,123 @@ topics_links = {
     ]
 }
 
-# Wanna to get the whole urls with related page
-for key, value in topics_links.items():
-    tmp_extend_urls_list = []
-    for main_sub_links in value:
-        pagination_urls = get_sub_topic_page(sub_topic_url=main_sub_links, pages=5)
-        pagination_urls.append(main_sub_links)
-        tmp_extend_urls_list.extend(pagination_urls)
-    topics_links[key] = tmp_extend_urls_list
+dantri_topic_links = {
+    "Thời sự": [
+        "https://dantri.com.vn/thoi-su/chinh-tri.htm",
+        "https://dantri.com.vn/thoi-su/hoc-tap-bac.htm",
+        "https://dantri.com.vn/thoi-su/dai-hoi-dang-xiv.htm",
+        "https://dantri.com.vn/thoi-su/moi-truong.htm"
+    ],
+    "Thế giới": [
+        "https://dantri.com.vn/the-gioi/quan-su.htm",
+        "https://dantri.com.vn/the-gioi/phan-tich-binh-luan.htm",
+        "https://dantri.com.vn/the-gioi/phan-tich-binh-luan.htm",
+        "https://dantri.com.vn/the-gioi/phan-tich-binh-luan.htm"
+    ],
+    "Kinh doanh": [
+        "https://dantri.com.vn/kinh-doanh/tai-chinh.htm",
+        "https://dantri.com.vn/kinh-doanh/chung-khoan.htm",
+        "https://dantri.com.vn/kinh-doanh/doanh-nghiep.htm",
+        "https://dantri.com.vn/kinh-doanh/khoi-nghiep.htm"
+    ],
+    "Khoa học công nghệ": [
+        "https://dantri.com.vn/khoa-hoc/the-gioi-tu-nhien.htm",
+        "https://dantri.com.vn/khoa-hoc/vu-tru.htm",
+        "https://dantri.com.vn/khoa-hoc/khoa-hoc-doi-song.htm",
+        "https://dantri.com.vn/khoa-hoc/khoa-hoc-doi-song.htm",
+        "https://dantri.com.vn/cong-nghe/an-ninh-mang.htm",
+        "https://dantri.com.vn/cong-nghe/san-pham-cong-dong.htm"
+    ],
+    "Bất động sản": [
+        "https://dantri.com.vn/bat-dong-san/du-an.htm",
+        "https://dantri.com.vn/bat-dong-san/thi-truong.htm",
+        "https://dantri.com.vn/bat-dong-san/nha-dat.htm",
+        "https://dantri.com.vn/bat-dong-san/nhip-song-do-thi.htm"
+    ],
+    "Sức khoẻ": [
+        "https://dantri.com.vn/suc-khoe.htm",
+        "https://dantri.com.vn/suc-khoe/song-khoe.htm",
+        "https://dantri.com.vn/suc-khoe/ung-thu.htm",
+        "https://dantri.com.vn/suc-khoe/kien-thuc-gioi-tinh.htm"
+    ],
+    "Thể thao": [
+        "https://dantri.com.vn/the-thao/bong-da.htm",
+        "https://dantri.com.vn/the-thao/pickleball.htm",
+        "https://dantri.com.vn/the-thao/tennis.htm",
+        "https://dantri.com.vn/the-thao/golf.htm"
+    ],
+    "Giải trí": [
+        "https://dantri.com.vn/giai-tri/hau-truong.htm",
+        "https://dantri.com.vn/giai-tri/dien-anh.htm",
+        "https://dantri.com.vn/giai-tri/am-nhac.htm",
+        "https://dantri.com.vn/giai-tri/thoi-trang.htm"
+    ],
+    "Pháp luật": [
+        "https://dantri.com.vn/phap-luat/ho-so-vu-an.htm",
+        "https://dantri.com.vn/phap-luat/phap-dinh.htm"
+    ],
+    "Giáo dục": [
+        "https://dantri.com.vn/giao-duc.htm",
+        "https://dantri.com.vn/giao-duc/goc-phu-huynh.htm",
+        "https://dantri.com.vn/giao-duc/khuyen-hoc.htm",
+        "https://dantri.com.vn/giao-duc/guong-sang.htm",
+    ],
+    "Đời sống": [
+        "https://dantri.com.vn/doi-song.htm",
+        "https://dantri.com.vn/doi-song/cong-dong.htm",
+        "https://dantri.com.vn/doi-song/thuong-luu.htm",
+        "https://dantri.com.vn/doi-song/nha-dep.htm",
+        "https://dantri.com.vn/doi-song/gioi-tre.htm"
+    ],
+    "Du lịch": [
+        "https://dantri.com.vn/du-lich.htm",
+        "https://dantri.com.vn/du-lich/tin-tuc.htm",
+        "https://dantri.com.vn/du-lich/kham-pha.htm",
+        "https://dantri.com.vn/du-lich/mon-ngon-diem-dep.htm"
+    ]
+}
 
-# Get the article urls
-article_links = {}
-for key, value in topics_links.items():
-    article_url = []
-    for sub_links in tqdm(value, desc=key):
-        article_url.extend(get_news_urls(sub_links))
-    article_links[key] = list(set(article_url))
+# Function to get the result
+def get_full_link_list(topic_links: dict, processor):
+    full_topics_links = dict()
+    for key, value in topic_links.items():
+        tmp_extend_urls_list = []
+        for main_sub_links in value:
+            pagination_urls = processor.get_sub_topic_page(sub_topic_url=main_sub_links, pages=3)
+            tmp_extend_urls_list.extend(pagination_urls)
+        full_topics_links[key] = list(set(tmp_extend_urls_list))
+    
+    return full_topics_links
 
-# Get the day named the file
-today = datetime.date.today().strftime("%Y-%m-%d")
-filepath = f"data_{today}.json"
+def article_processing(topics_links, processor, f):
+    topics_links = get_full_link_list(topics_links, processor)
+    for key, value in topics_links.items():
+        article_urls = []
+        for sub_links in tqdm(value, desc=key):
+            article_urls.extend(processor.get_news_urls(sub_links))
+        article_urls = list(set(article_urls))
 
-# Start open and put data into the json file
-with open(os.path.join(DATA_DIR, filepath), "a", encoding="utf-8") as f:
-    f.write("[\n")
-
-    for key, value in article_links.items():
-        for article_url in tqdm(value, desc=key):
-            data = get_structure_content(article_url)
+        for article_url in tqdm(article_urls, desc=key):
+            data = processor.get_structure_content(article_url)
             if data != None:
                 data["Tags"] = key
-            # f.write("\t")
             json_string = json.dumps(data, ensure_ascii=False, indent=4)
             indented = "    " + json_string.replace("\n", "\n    ")
             f.write(indented)
-            if key == list(article_links.keys())[-1] and article_url == value[-1]:
+            if topics_links == vnexpress_topics_links and key == list(topics_links.keys())[-1] and article_url == article_urls[-1]:
                 f.write("\n")
             else:
                 f.write(",\n")
-    f.write("]")
+    
+if __name__ == "__main__":
+    # Get the day named the file
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    filepath = f"data_{today}.json"
+
+    # Start open and put data into the json file
+    with open(os.path.join(DATA_DIR, filepath), "a", encoding="utf-8") as f:
+        f.write("[\n")
+        # Get the article urls
+        article_processing(dantri_topic_links, dantri_processor, f)
+        article_processing(vnexpress_topics_links, vnexpress_processor, f)
+        f.write("]")
