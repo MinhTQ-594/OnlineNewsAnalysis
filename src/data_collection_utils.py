@@ -8,6 +8,17 @@ import re
 import random
 import urllib3
 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+import time
+
+options = webdriver.ChromeOptions()
+options.add_argument('--headless') 
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+
+
 # CONTENT SCRAPING
 class VnExpress():
 
@@ -243,6 +254,25 @@ class VnExpress():
         # If both methods fail, return None
         return None
 
+    def get_content_selenium(self, url:str, option:webdriver.ChromeOptions=options) -> str:
+
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+        # 2. Truy cập trang web
+        driver.get(url)
+
+        # 3. QUAN TRỌNG: Cuộn trang xuống cuối để kích hoạt tải Tin Liên Quan
+        # VnExpress thường dùng Lazy Load, phải cuộn xuống nó mới hiện
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+        # Chờ 3-5 giây cho JavaScript tải dữ liệu về
+        time.sleep(3) 
+
+        # 4. Lấy HTML sau khi đã tải xong mọi thứ
+        html_content = driver.page_source
+        driver.quit() 
+        return html_content
+
     def parse_article(self, html_content: str, url: str) -> dict:
         """
         Parse article details from HTML content.
@@ -447,6 +477,48 @@ class VnExpress():
                             keywords_list.append(kw)
             # Xóa trùng lặp
             keywords_list = list(set(keywords_list))
+
+
+            # ====================== Extract Related Links =========================
+            related_links = []
+
+            # Các selector phổ biến để tìm link bài viết trong khối tin liên quan
+            # Sắp xếp theo độ ưu tiên: Tiêu đề -> Ảnh -> Các link khác
+            link_selectors = [
+                ".box-tinlienquanv2 article h4 a",  # Box tin liên quan chuẩn (V2)
+                ".box-tinlienquan article h4 a",    # Box tin liên quan cũ
+                "ul.list-news-related li a",        # Dạng danh sách liệt kê
+                ".item-news.related-news a"         # Một số giao diện đặc biệt
+            ]
+
+            for selector in link_selectors:
+                elements = soup.select(selector)
+                for element in elements:
+                    link = ""
+                    
+                    # Kiểm tra nếu có thuộc tính href
+                    if element.name == "a" and "href" in element.attrs:
+                        link = element['href'].strip()
+                        
+                    # (Mở rộng) Nếu trang web dùng lazy-load link trong data attribute (ví dụ data-url)
+                    # thì thêm elif kiểm tra ở đây tương tự như cách kiểm tra meta content.
+                    
+                    if link:
+
+                        link = link.split('#')[0]
+
+                        # Bỏ qua các link rỗng, javascript hoặc neo nội bộ (#)
+                        if link.startswith("javascript") or link == "#":
+                            continue
+                            
+                        # Xử lý chuẩn hóa link (nếu cần)
+                        if link.startswith("/"):
+                            link = "https://vnexpress.net" + link
+                            
+                        related_links.append(link)
+
+            # Xóa trùng lặp (Set không đảm bảo thứ tự, nếu cần thứ tự hãy dùng dict.fromkeys)
+            related_links = list(set(related_links))
                     
             # Return final result as dictionary
             # (Trả kết quả cuối cùng dưới dạng dictionary để dễ xử lý tiếp)
@@ -459,7 +531,8 @@ class VnExpress():
                 "Title": title_detail,
                 "Description": description if description else title_detail[:200],
                 "Contents": content_text,
-                "Key_words": keywords_list
+                "Key_words": keywords_list,
+                "Related_link": related_links
             }
 
         except Exception as e:
@@ -474,7 +547,8 @@ class VnExpress():
         """
         try:
             # Try to get HTML from the URL (automatically chooses between requests and curl)
-            raw_content = self.get_content_enhanced(url)
+            # raw_content = self.get_content_selenium(url)
+            raw_content = self.get_content_enhanced(url) # use for quick filling missing
 
             # If unable to retrieve content (None returned), stop here
             if raw_content is None:
@@ -485,7 +559,7 @@ class VnExpress():
 
         except Exception as e:
             # If any unexpected error occurs (network, parsing, syntax, etc.)
-            # print("ERROR: ", e)
+            print("ERROR: ", e)
             return f"Scraping ERROR with {url}"
     # CRAWLING
     def get_news_urls(self, page_link: str) -> list:
@@ -1048,6 +1122,48 @@ class DanTri():
                             keywords_list.append(kw)
             # Xóa trùng lặp
             keywords_list = list(set(keywords_list))
+
+            # ====================== Extract Related Links =========================
+
+            related_links = []
+
+            # Các selector để tìm bài viết liên quan
+            # Ưu tiên 1: Các thẻ chứa data attribute (như trong HTML bạn gửi)
+            # Ưu tiên 2: Các thẻ a nằm trong vùng tin liên quan
+            related_selectors = [
+                "aside.article.related article.article-item h3.article-title a",
+                "aside.article-related article.article-item"
+            ]
+
+            for selector in related_selectors:
+                elements = soup.select(selector)
+                for element in elements:    
+                    link = ""
+                    
+                    # TRƯỜNG HỢP 1: Lấy từ data attribute (như Dân Trí)
+                    if "data-content-target" in element.attrs:
+                        link = element['data-content-target'].strip()
+                        
+                    # TRƯỜNG HỢP 2: Lấy từ thẻ <a> thông thường
+                    elif element.name == "a" and "href" in element.attrs:
+                        link = element['href'].strip()
+                        
+                    # Xử lý link và thêm vào list
+                    if link:
+                        # Bỏ qua các link rỗng hoặc javascript:void
+                        if link.startswith("javascript") or link == "#":
+                            continue
+                            
+                        # (Tùy chọn) Xử lý nối domain nếu link là tương đối
+                        # Ví dụ: /thoi-su/... -> https://dantri.com.vn/thoi-su/...
+                        if link.startswith("/"):
+                            domain = "https://dantri.com.vn" # Bạn có thể lấy domain động từ url gốc
+                            link = domain + link
+                            
+                        related_links.append(link)
+
+            # Xóa trùng lặp (Set không đảm bảo thứ tự, nếu cần thứ tự hãy dùng dict.fromkeys)
+            related_links = list(set(related_links))
                     
             # Return final result as dictionary
             # (Trả kết quả cuối cùng dưới dạng dictionary để dễ xử lý tiếp)
@@ -1060,7 +1176,8 @@ class DanTri():
                 "Title": title_detail,
                 "Description": description if description else title_detail[:200],
                 "Contents": content_text,
-                "Key_words": keywords_list
+                "Key_words": keywords_list,
+                "Related_link": related_links
             }
 
         except Exception as e:
@@ -1086,7 +1203,7 @@ class DanTri():
 
         except Exception as e:
             # If any unexpected error occurs (network, parsing, syntax, etc.)
-            # print("ERROR: ", e)
+            print("ERROR: ", e)
             return f"Scraping ERROR with {url}"    
         
     def get_news_urls(self, page_link: str) -> list:
@@ -1192,3 +1309,7 @@ class DanTri():
 
         # Return the complete list of URLs
         return urls_list
+    
+
+if __name__ == "__main__":
+    pass
