@@ -1,3 +1,5 @@
-src/__pycache__/
-wc310
-processed_data/
+__pycache__
+data/*.json
+test/*
+.env
+qdrant_storage/
