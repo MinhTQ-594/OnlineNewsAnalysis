@@ -43,8 +43,3 @@ npm start
 * Make sure you have Python >= 3.9 and Node.js installed.
 * The backend exposes endpoints for searching and indexing articles.
 * The frontend provides an interactive interface for querying the news corpus.
-
-```
-
-Nếu muốn, mình có thể viết thêm **phiên bản README “cực xịn”** với **hình minh họa, badges, và hướng dẫn chạy nhanh chỉ trong 1 lệnh** để nhìn chuyên nghiệp hơn nữa. Bạn có muốn mình làm không?
-```
