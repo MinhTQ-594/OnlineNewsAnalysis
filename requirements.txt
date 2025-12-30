@@ -1,0 +1,8 @@
+requests
+beautifulsoup4
+urllib3
+py_vncorenlp
+sentence-transformers
+qdrant-client
+pandas
+gradio

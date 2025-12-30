@@ -3,3 +3,4 @@ data/*.json
 test/*
 .env
 qdrant_storage/
+src/frontend/node_modules/
