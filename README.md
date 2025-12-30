@@ -10,7 +10,7 @@ The preprocessed dataset for **EDA and Machine Learning tasks** is available her
 
 [Google Drive Folder](https://drive.google.com/drive/folders/1DWXkQAwLct8b51FV-qsybNYceGL_aYxG?usp=sharing)
 
-**File to use:** `Indexed_cleanest_data.json`
+**File to use:** `sorted_processed_articles_corpus.json`
 
 ---
 
